@@ -27,91 +27,158 @@ namespace patch
 
 int fileReadSingle(char* filename, int* numObjs, int* numCoords, vector< vector<double> >& objects)     /* no. coordinates */
 {            
-	FILE *infile;
-
-	if ((infile = fopen(filename, "r")) == NULL)
+	ifstream in(filename);
+	if (!in.is_open())
 	{
 		fprintf(stderr, "Error: no such file (%s)\n", filename);
 		return -1;
 	}
 
-	DataPoint dataPointTemp = NULL;
+	vector<string> lines;
+	string line;
+	while (std::getline(in, line))
+	{
+		// trim spaces
+		bool allws = true;
+		for(char c : line) if (!isspace((unsigned char)c)) { allws = false; break; }
+		if (allws) continue;
+		if (line.size() > 0 && line[0] == '#') continue; // skip comments
+		lines.push_back(line);
+	}
+	in.close();
 
-	fscanf(infile, "%d", numObjs); //Number Of Objects       
-	fscanf(infile, "%d", numCoords);	//Number Of Features
+	if (lines.empty()) return -1;
 
-	DIMENSION = *numCoords; // CHECK
-	int totalPoints = *numObjs;
+	// helper lambdas
+	auto is_integer = [](const string &s)->bool{
+		if (s.empty()) return false;
+		char *endptr = nullptr;
+		long v = strtol(s.c_str(), &endptr, 10);
+		return endptr != s.c_str() && *endptr == '\0';
+	};
 
-	MINGRIDSIZEglobal = (double*) calloc(DIMENSION, sizeof(double));
-	// assert(MINGRIDSIZEglobal != NULL);
+	auto split_ws = [](const string &s)->vector<string>{
+		vector<string> out;
+		string token;
+		std::istringstream iss(s);
+		while (iss >> token) out.push_back(token);
+		return out;
+	};
 
-	MAXGRIDSIZEglobal = (double*) calloc(DIMENSION, sizeof(double));
-	// assert(MAXGRIDSIZEglobal != NULL);
-
-	MINGRIDSIZE = (double*) calloc(DIMENSION, sizeof(double));
-	// assert(MINGRIDSIZE != NULL);
-
-	MAXGRIDSIZE = (double*) calloc(DIMENSION, sizeof(double));
-	// assert(MAXGRIDSIZE != NULL);
-
-	int iNum=0;
-	int local_points = totalPoints;
-	/* allocate space for objects[][] and read all objects */
-	int i, j, iDim;
-
-	objects.resize(local_points);
-	for(int ll = 0; ll < local_points; ll++)
-		objects[ll].resize(DIMENSION);
-
-	dataPointTemp = (DataPoint) calloc(DIMENSION,  sizeof(dataPoint)); 
-	// assert(dataPointTemp != NULL);
-
-	i=0;
-	int e;
-
-	while(1)
-	{ 
-		double temp;
-		for (j=0; j<DIMENSION; j++)
+	auto split_csv = [](const string &s)->vector<string>{
+		vector<string> out;
+		string cur;
+		for (char c : s)
 		{
-			e = fscanf(infile, "%lf", &temp);
-			if(e == -1) break;
-			objects[i][j] = temp;  
+			if (c == ',') { if(!cur.empty()) out.push_back(cur); cur.clear(); }
+			else cur.push_back(c);
 		}
+		if(!cur.empty()) out.push_back(cur);
+		return out;
+	};
 
-		if(e==-1) break;
-
-
-		if(i==0)
+	// detect old format: first two non-empty lines are integers
+	if (lines.size() >= 2)
+	{
+		string l0 = lines[0];
+		string l1 = lines[1];
+		vector<string> t0 = split_ws(l0);
+		vector<string> t1 = split_ws(l1);
+		if (t0.size() == 1 && t1.size() == 1 && is_integer(t0[0]) && is_integer(t1[0]))
 		{
-			for(j=0;j<DIMENSION;j++)
+			int totalPoints = atoi(t0[0].c_str());
+			int dims = atoi(t1[0].c_str());
+			*numObjs = totalPoints;
+			*numCoords = dims;
+			DIMENSION = dims;
+
+			MINGRIDSIZEglobal = (double*) calloc(DIMENSION, sizeof(double));
+			MAXGRIDSIZEglobal = (double*) calloc(DIMENSION, sizeof(double));
+			MINGRIDSIZE = (double*) calloc(DIMENSION, sizeof(double));
+			MAXGRIDSIZE = (double*) calloc(DIMENSION, sizeof(double));
+
+			objects.resize(totalPoints);
+			for (int i = 0; i < totalPoints; i++) objects[i].resize(DIMENSION);
+
+			int idx = 0;
+			for (size_t ln = 2; ln < lines.size() && idx < totalPoints; ln++)
 			{
-				MINGRIDSIZEglobal[j] = (objects)[0][0];
-				MAXGRIDSIZEglobal[j] = (objects)[0][0];    
+				vector<string> vals = split_ws(lines[ln]);
+				for (int d = 0; d < DIMENSION && d < (int)vals.size(); d++)
+				{
+					double v = atof(vals[d].c_str());
+					objects[idx][d] = v;
+				}
+
+				if (idx == 0)
+				{
+					for (int d = 0; d < DIMENSION; d++)
+					{
+						MINGRIDSIZEglobal[d] = objects[0][d];
+						MAXGRIDSIZEglobal[d] = objects[0][d];
+					}
+				}
+				for (int d = 0; d < DIMENSION; d++)
+				{
+					double v = objects[idx][d];
+					if (MINGRIDSIZEglobal[d] > v) MINGRIDSIZEglobal[d] = v;
+					if (MAXGRIDSIZEglobal[d] < v) MAXGRIDSIZEglobal[d] = v;
+				}
+
+				idx++;
+			}
+			return totalPoints;
+		}
+	}
+
+	// otherwise treat as CSV: each non-empty line is a point, comma-separated (or whitespace)
+	int dims = -1;
+	for (size_t ln = 0; ln < lines.size(); ln++)
+	{
+		string l = lines[ln];
+		// try csv split first
+		vector<string> toks = split_csv(l);
+		if (toks.empty()) toks = split_ws(l);
+		if (dims == -1) dims = (int)toks.size();
+		if ((int)toks.size() != dims)
+		{
+			// if inconsistent, try whitespace split
+			toks = split_ws(l);
+			if ((int)toks.size() != dims)
+			{
+				// skip malformed line
+				continue;
 			}
 		}
-
-		for(iDim = 0; iDim < DIMENSION; iDim++) //to find the max and min values along each dimension
+		vector<double> row(dims);
+		for (int d = 0; d < dims; d++) row[d] = atof(toks[d].c_str());
+		objects.push_back(row);
+		if ((int)objects.size() == 1)
 		{
-			dataPointTemp[iDim] = (objects)[i][iDim];
-
-			if(MINGRIDSIZEglobal[iDim] > dataPointTemp[iDim])
+			MINGRIDSIZEglobal = (double*) calloc(dims, sizeof(double));
+			MAXGRIDSIZEglobal = (double*) calloc(dims, sizeof(double));
+			MINGRIDSIZE = (double*) calloc(dims, sizeof(double));
+			MAXGRIDSIZE = (double*) calloc(dims, sizeof(double));
+			for (int d = 0; d < dims; d++)
 			{
-				MINGRIDSIZEglobal[iDim] = dataPointTemp[iDim]; 
-			}
-			if(MAXGRIDSIZEglobal[iDim] < dataPointTemp[iDim])
-			{
-				MAXGRIDSIZEglobal[iDim] = dataPointTemp[iDim];
+				MINGRIDSIZEglobal[d] = row[d];
+				MAXGRIDSIZEglobal[d] = row[d];
 			}
 		}
-		i++;
+		else
+		{
+			for (int d = 0; d < dims; d++)
+			{
+				if (MINGRIDSIZEglobal[d] > row[d]) MINGRIDSIZEglobal[d] = row[d];
+				if (MAXGRIDSIZEglobal[d] < row[d]) MAXGRIDSIZEglobal[d] = row[d];
+			}
+		}
+	}
 
-	}  
+	*numObjs = (int)objects.size();
+	*numCoords = (dims == -1 ? 0 : dims);
+	DIMENSION = *numCoords;
 
-	free(dataPointTemp);
-
-	fclose(infile); 
 	return *numObjs;
 }
 
@@ -128,11 +195,12 @@ int fileReadMulti(char* infilename, int* numObjs, int* numCoords, vector< vector
 	struct stat st;
 	if (stat(infilename, &st) == 0 && S_ISREG(st.st_mode))
 	{
+		double t0 = MPI_Wtime();
 		int total_points = 0;
 		int dims_local = 0;
 		vector< vector<double> > all_objects;
 
-		if (rank == 0)
+	if (rank == 0)
 		{
 			/* reuse existing single-file reader on rank 0 */
 			int rc = fileReadSingle(infilename, &total_points, &dims_local, all_objects);
@@ -141,6 +209,11 @@ int fileReadMulti(char* infilename, int* numObjs, int* numCoords, vector< vector
 				cerr << "rank 0 Error: could not read file: " << infilename << endl;
 				MPI_Abort(MPI_COMM_WORLD, -1);
 			}
+		}
+
+		double t1 = MPI_Wtime();
+		if (rank == 0) {
+			cerr << "[fileReadMulti] rank 0 read time: " << (t1 - t0) << "s, distributing " << total_points << " points across " << nproc << " ranks\n";
 		}
 
 		/* broadcast metadata */
@@ -225,6 +298,10 @@ int fileReadMulti(char* infilename, int* numObjs, int* numCoords, vector< vector
 			MAXGRIDSIZE[d] = MAXGRIDSIZEglobal[d];
 		}
 
+		double t2 = MPI_Wtime();
+		if (rank == 0)
+			cerr << "[fileReadMulti] rank 0 distribution time (including scatter): " << (t2 - t1) << "s\n";
+
 		return local_points;
 	}
 
@@ -237,100 +314,18 @@ int fileReadMulti(char* infilename, int* numObjs, int* numCoords, vector< vector
 	//cout<<"file_acc_to_rank "<<file_acc_to_rank<<"\n";
 	file_acc_to_rank = infolder + "/" + file_acc_to_rank;
 	//cout<<"file_acc_to_rank "<<file_acc_to_rank<<"\n";
-	ifstream file(file_acc_to_rank.c_str(), ios::in);
 	int local_points = 0;
-
-	if (file.is_open())
+	int rc = fileReadSingle((char*)file_acc_to_rank.c_str(), &num_points, &dims, objects);
+	if (rc < 0)
 	{
-		file >> num_points;
-		file >> dims;
-		long long sch, lower, upper;
-
-		// if(num_points % nproc == 0)
-		//     sch = num_points/nproc;
-		// else
-		//     sch = num_points/nproc + 1;
-
-		lower = 0;
-		upper = num_points;
-
-		// if(lower > num_points)
-		// 	lower = num_points;
-
-		// if(upper > num_points)
-		//     upper = num_points;
-
-		*numObjs = num_points;
-		*numCoords = dims;
-
-		DIMENSION = dims;
-		local_points = upper - lower;
-
-		objects.resize(local_points);
-		for(int ll = 0; ll < local_points; ll++)
-			objects[ll].resize(dims);
-
-		MINGRIDSIZEglobal = (double*) calloc(DIMENSION, sizeof(double));
-		// assert(MINGRIDSIZEglobal != NULL);
-
-		MAXGRIDSIZEglobal = (double*) calloc(DIMENSION, sizeof(double));
-		// assert(MAXGRIDSIZEglobal != NULL);
-
-		MINGRIDSIZE = (double*) calloc(DIMENSION, sizeof(double));
-		// assert(MINGRIDSIZE != NULL);
-
-		MAXGRIDSIZE = (double*) calloc(DIMENSION, sizeof(double));
-		// assert(MAXGRIDSIZE != NULL);
-
-		int iNum=0;
-		double* pt;
-
-		string s;
-		s.resize(1000, 0);
-
-		for(i=0;i<lower;i++)
-			getline(file, s);
-
-		pt = (double*) calloc(dims, sizeof(double));
-		// assert(pt != NULL);
-
-		for (i = 0; i < local_points; i++)
-		{
-			for (j = 0; j < dims; j++)
-			{
-				file >> pt[j];
-				(objects)[i][j] = pt[j];
-
-				if(i==0)
-				{
-					MINGRIDSIZEglobal[j] = (objects)[0][0];
-					MAXGRIDSIZEglobal[j] = (objects)[0][0];    
-				}
-				else
-				{
-					if(MINGRIDSIZEglobal[j] > (objects)[i][j])
-					{
-						MINGRIDSIZEglobal[j] = (objects)[i][j]; 
-					}
-					if(MAXGRIDSIZEglobal[j] < (objects)[i][j])
-					{
-						MAXGRIDSIZEglobal[j] = (objects)[i][j];
-					}
-				}
-			}
-		}
-
-		free(pt);
-		pt = NULL;
-		
-		file.close();
-		return local_points;
-	}
-	else
-	{
-		cout << "rank " << rank << " Error: no such file: " << infilename << endl;
+		cout << "rank " << rank << " Error: no such file: " << file_acc_to_rank << endl;
 		exit(-1);
 	}
+	local_points = rc;
+	*numObjs = num_points;
+	*numCoords = dims;
+	DIMENSION = dims;
+	return local_points;
 	return -1;
 }
 
@@ -594,6 +589,7 @@ void start_partitioning(vector< vector<double> >& objects, int* num_points)
 	int r_count, s_count, rank, nproc, i, j, k;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+	double t_start = MPI_Wtime();
 
 	interval* box = new interval[DIMENSION];
 
@@ -698,9 +694,13 @@ void start_partitioning(vector< vector<double> >& objects, int* num_points)
 	for(i = 0; i < internal_nodes; i++)
 		delete [] nodes_gbox[i];
 
-	delete nodes_gbox;
+	delete [] nodes_gbox;
 
 	delete [] gbox;
+
+	double t_end = MPI_Wtime();
+	if (rank == 0)
+		cerr << "[start_partitioning] partitioning time: " << (t_end - t_start) << "s\n";
 }
 
 bool addPoints(int source, int buf_size, int dims, vector<double>& raw_data, vector< vector<double> >& remote_objects, vectorc* remote_PrIDs, int* remote_number)
@@ -762,14 +762,11 @@ bool updatePoints(vector< vector<int> >& raw_ind, vectorc* remote_Indices, vecto
 void get_extra_points(vector< vector<double> >& objects, int* num_points, vector< vector<double> >& remote_objects, vectorc* remote_PrIDs, vectorc* remote_Indices, int* remote_number)
 {
 
-#ifdef _DEBUG_GP
-	MPI_Barrier(MPI_COMM_WORLD);
-	double end, start = MPI_Wtime();
-#endif
-
-	int k, rank, nproc, i, j;
+	int rank, nproc, k, i, j;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+
+	double start = MPI_Wtime();
 
 #ifdef _DEBUG
 	if(rank == proc_of_interest) cout << "extra point time part 0 strating " << endl;
@@ -805,14 +802,9 @@ void get_extra_points(vector< vector<double> >& objects, int* num_points, vector
 	send_buf_ind.resize(nproc, empty_i);
 	recv_buf_ind.resize(nproc, empty_i);
 
-#ifdef _DEBUG_GP
-	MPI_Barrier(MPI_COMM_WORLD);
-	end = MPI_Wtime();
-#ifdef _DEBUG
-	if(rank == proc_of_interest) cout << "extra point time part 1: " << end - start << endl;	
-#endif
-	start = end;
-#endif
+	double mid1 = MPI_Wtime();
+	if (rank == 0)
+		cerr << "[get_extra_points] phase1 (gather boxes) time: " << (mid1 - start) << "s\n";
 
 	for(k = 0; k < nproc; k++)
 	{
@@ -873,14 +865,9 @@ void get_extra_points(vector< vector<double> >& objects, int* num_points, vector
 		}
 	}
 
-#ifdef _DEBUG_GP
-	MPI_Barrier(MPI_COMM_WORLD);
-	end = MPI_Wtime();
-#ifdef _DEBUG
-	if(rank == proc_of_interest) cout << "extra point time part 2: " << end - start << endl;        
-#endif
-	start = end;
-#endif
+	double mid2 = MPI_Wtime();
+	if (rank == 0)
+		cerr << "[get_extra_points] phase2 (collect local candidates) time: " << (mid2 - mid1) << "s\n";
 
 	vector <int> send_buf_size, recv_buf_size;
 	send_buf_size.resize(nproc, 0);
@@ -946,14 +933,9 @@ void get_extra_points(vector< vector<double> >& objects, int* num_points, vector
 	if(send_count > 0)
 		MPI_Waitall(send_count, &req_send[0], &stat_send[0]);
 
-#ifdef _DEBUG_GP
-	MPI_Barrier(MPI_COMM_WORLD);
-	end = MPI_Wtime();
-#ifdef _DEBUG
-	if(rank == proc_of_interest) cout << "extra point time part 3: " << end - start << endl;        
-#endif
-	start = end;
-#endif
+	double mid3 = MPI_Wtime();
+	if (rank == 0)
+		cerr << "[get_extra_points] phase3 (comm) time: " << (mid3 - mid2) << "s\n";
 
 	updatePoints(recv_buf_ind, remote_Indices, remote_PrIDs, *remote_number);
 
@@ -967,15 +949,9 @@ void get_extra_points(vector< vector<double> >& objects, int* num_points, vector
 	}
 #endif
 
-#ifdef _DEBUG_GP
-	MPI_Barrier(MPI_COMM_WORLD);
-	end = MPI_Wtime();
-#ifdef _DEBUG
-
-	if(rank == proc_of_interest) cout << "extra point time part 4: " << end - start << endl;        
-#endif
-	start = end;
-#endif
+	double end = MPI_Wtime();
+	if (rank == 0)
+		cerr << "[get_extra_points] total extra points time: " << (end - start) << "s\n";
 
 
 	empty.clear();
