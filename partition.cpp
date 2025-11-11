@@ -11,6 +11,8 @@ email: asaditya1195@gmail.com
 #include "vectorc.h"
 #include <sstream>
 #include <iostream>
+#include <sys/stat.h>
+#include <vector>
 
 
 namespace patch
@@ -119,6 +121,112 @@ int fileReadMulti(char* infilename, int* numObjs, int* numCoords, vector< vector
 	int num_points,  dims;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+
+	/* If the provided path is a regular file, have rank 0 read the whole
+	   file and distribute points across ranks. Otherwise keep the
+	   original behaviour of opening per-rank files in a directory. */
+	struct stat st;
+	if (stat(infilename, &st) == 0 && S_ISREG(st.st_mode))
+	{
+		int total_points = 0;
+		int dims_local = 0;
+		vector< vector<double> > all_objects;
+
+		if (rank == 0)
+		{
+			/* reuse existing single-file reader on rank 0 */
+			int rc = fileReadSingle(infilename, &total_points, &dims_local, all_objects);
+			if (rc < 0)
+			{
+				cerr << "rank 0 Error: could not read file: " << infilename << endl;
+				MPI_Abort(MPI_COMM_WORLD, -1);
+			}
+		}
+
+		/* broadcast metadata */
+		MPI_Bcast(&total_points, 1, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(&dims_local, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+		*numObjs = total_points;
+		*numCoords = dims_local;
+		DIMENSION = dims_local;
+
+		/* compute balanced counts per rank (in points) */
+		vector<int> counts(nproc, 0);
+		vector<int> displ(nproc, 0);
+		int base = 0, rem = 0;
+		if (total_points > 0)
+		{
+			base = total_points / nproc;
+			rem = total_points % nproc;
+		}
+		for (int r = 0; r < nproc; r++)
+		{
+			counts[r] = base + (r < rem ? 1 : 0);
+			if (r > 0) displ[r] = displ[r-1] + counts[r-1];
+		}
+
+		int local_points = counts[rank];
+
+		/* resize local objects */
+		objects.resize(local_points);
+		for (int ll = 0; ll < local_points; ll++)
+			objects[ll].resize(dims_local);
+
+		/* prepare sendcounts/displacements in number of doubles */
+		vector<int> sendcounts_dbl(nproc, 0);
+		vector<int> displ_dbl(nproc, 0);
+		for (int r = 0; r < nproc; r++)
+		{
+			sendcounts_dbl[r] = counts[r] * dims_local;
+			displ_dbl[r] = displ[r] * dims_local;
+		}
+
+		vector<double> flat;
+		if (rank == 0)
+		{
+			flat.resize((size_t)total_points * dims_local);
+			for (int p = 0; p < total_points; p++)
+			{
+				for (int d = 0; d < dims_local; d++)
+					flat[p * dims_local + d] = all_objects[p][d];
+			}
+		}
+
+		vector<double> recvbuf;
+		recvbuf.resize((size_t)local_points * dims_local);
+
+		MPI_Scatterv(rank == 0 ? &flat[0] : NULL, &sendcounts_dbl[0], &displ_dbl[0], MPI_DOUBLE,
+					 recvbuf.data(), (local_points * dims_local), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+		/* fill local objects from recvbuf */
+		for (int p = 0; p < local_points; p++)
+		{
+			for (int d = 0; d < dims_local; d++)
+				objects[p][d] = recvbuf[p * dims_local + d];
+		}
+
+		/* ensure global min/max arrays exist on all ranks — broadcast from root */
+		if (rank != 0)
+		{
+			MINGRIDSIZEglobal = (double*) calloc(dims_local, sizeof(double));
+			MAXGRIDSIZEglobal = (double*) calloc(dims_local, sizeof(double));
+			MINGRIDSIZE = (double*) calloc(dims_local, sizeof(double));
+			MAXGRIDSIZE = (double*) calloc(dims_local, sizeof(double));
+		}
+
+		MPI_Bcast(MINGRIDSIZEglobal, dims_local, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+		MPI_Bcast(MAXGRIDSIZEglobal, dims_local, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+		/* copy globals into local per-process arrays if needed */
+		for (int d = 0; d < dims_local; d++)
+		{
+			MINGRIDSIZE[d] = MINGRIDSIZEglobal[d];
+			MAXGRIDSIZE[d] = MAXGRIDSIZEglobal[d];
+		}
+
+		return local_points;
+	}
 
 	//cout << "Process " << rank << " entered fileReadMulti\n";
 
