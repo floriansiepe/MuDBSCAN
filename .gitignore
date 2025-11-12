@@ -30,3 +30,43 @@
 *.exe
 *.out
 *.app
+
+# Build directories
+build/
+bin/
+
+# Makefile dependencies
+*.d
+
+# Editor backups and metadata
+*~
+*.swp
+*.swo
+.vscode/
+.idea/
+*.iml
+
+# macOS
+.DS_Store
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Python caches (sometimes present in user paths)
+__pycache__/
+*.pyc
+
+# Coverage
+coverage/
+
+# MPI and run outputs (local)
+output
+output.*
+
+# Large data files (uncomment if you track datasets in repo)
+# *.csv
+# *.tsv
+
+# Ignore core dumps
+core*
