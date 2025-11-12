@@ -1,12 +1,14 @@
-#!/usr/bin/env bash
-#SBATCH --job-name=muDBSCAN
-#SBATCH --output=muDBSCAN-%j.out
-#SBATCH --error=muDBSCAN-%j.err
-#SBATCH --time=05:00:00
+#!/bin/bash
+#SBATCH --job-name=MuDBSCANJob
 #SBATCH --nodes=4
-#SBATCH --ntasks-per-node=32
-#SBATCH --mem-per-cpu=4G
+#SBATCH --ntasks=4
 #SBATCH --cpus-per-task=1
+#SBATCH --output=mu-dbscan_output_%j.txt
+#SBATCH --time=05:00:00
+#SBATCH --mail-user=siepef@uni-marburg.de
+#SBATCH --mail-type=END
+#SBATCH --mem=128G
+##SBATCH --exclusive
 # You can override partition, qos, account etc. by editing the header or
 # passing them to sbatch on the command line. Adjust nodes/ntasks-per-node
 # to match the resources you need.
@@ -29,12 +31,9 @@ EPS="$3"
 MINPTS="$4"
 NUM_PARTITIONS="$5"
 EXP_DIR="$6"
-OUT="$7"
-MINENTRIES=100
-MAXENTRIES=1000
 
-if [ -z "$DATASET" ] || [ -z "$MINENTRIES" ] || [ -z "$EPS" ] || [ -z "$MINPTS" ] || [ -z "$NUM_PARTITIONS" ] || [ -z "$EXP_DIR" ] || [ -z "$OUT" ]; then
-  echo "Usage: sbatch run.slurm <dataset> <minEntries> <eps> <minPts> <num_partitions> <exp_dir> <out>"
+if [ -z "$DATASET" ] || [ -z "$MINENTRIES" ] || [ -z "$EPS" ] || [ -z "$MINPTS" ] || [ -z "$NUM_PARTITIONS" ] || [ -z "$EXP_DIR" ]; then
+  echo "Usage: sbatch run.slurm <dataset> <minEntries> <eps> <minPts> <num_partitions> <exp_dir>"
   exit 1
 fi
 

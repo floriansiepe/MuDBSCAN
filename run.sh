@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
-# Get dataset, dim, eps, minPts and num_partitions from command line arguments
+# Get dataset, minEntries, eps, minPts, num_partitions and exp_dir from command line arguments
 DATASET=${1}
-DIM=${2}
+MINENTRIES=${2:-100}
 EPS=${3}
 MINPTS=${4}
 NUM_PARTITIONS=${5}
 EXP_DIR=${6}
-OUT="out.csv"
 
-# Check if all arguments are provided
-if [ -z "$DATASET" ] || [ -z "$DIM" ] || [ -z "$EPS" ] || [ -z "$MINPTS" ] || [ -z "$NUM_PARTITIONS" ] || [ -z "$EXP_DIR" ]; then
-  echo "Usage: $0 <dataset> <dim> <eps> <minPts> <num_partitions> <exp_dir>"
+
+# Check if required arguments are provided
+if [ -z "$DATASET" ] || [ -z "$EPS" ] || [ -z "$MINPTS" ] || [ -z "$NUM_PARTITIONS" ] || [ -z "$EXP_DIR" ]; then
+  echo "Usage: $0 <dataset> <minEntries> <eps> <minPts> <num_partitions> <exp_dir> [out]"
   exit 1
 fi
 
-sbatch run.slurm "$DATASET" "$DIM" "$EPS" "$MINPTS" "$NUM_PARTITIONS" "$EXP_DIR" "$OUT"
+# For pure-MPI runs set NUM_PARTITIONS to number of ranks (e.g. 128 for 4 nodes × 32 cores)
+# Forward NUM_PARTITIONS as the ntasks value to sbatch so the allocation matches the run.
+sbatch --ntasks=${NUM_PARTITIONS} --cpus-per-task=1 run.slurm "$DATASET" "$MINENTRIES" "$EPS" "$MINPTS" "$NUM_PARTITIONS" "$EXP_DIR"
 
 exit 0
 
