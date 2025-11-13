@@ -57,6 +57,16 @@ echo "Eps: $EPS  MinPts: $MINPTS  MinEntries: $MINENTRIES  MaxEntries: $MAXENTRI
 module purge
 module load openmpi4
 
+# If a bundled lib or lib64 directory exists in the submit directory, prepend it
+# to LD_LIBRARY_PATH so bundled libstdc++.so.6 is used on compute nodes.
+if [ -d "${SLURM_SUBMIT_DIR:-.}/lib" ]; then
+  export LD_LIBRARY_PATH="${SLURM_SUBMIT_DIR:-.}/lib:${LD_LIBRARY_PATH:-}"
+  echo "Prepending ${SLURM_SUBMIT_DIR:-.}/lib to LD_LIBRARY_PATH"
+elif [ -d "${SLURM_SUBMIT_DIR:-.}/lib64" ]; then
+  export LD_LIBRARY_PATH="${SLURM_SUBMIT_DIR:-.}/lib64:${LD_LIBRARY_PATH:-}"
+  echo "Prepending ${SLURM_SUBMIT_DIR:-.}/lib64 to LD_LIBRARY_PATH"
+fi
+
 # Prepare a per-job scratch output file (so the compute nodes write to shared scratch)
 # Default scratch base directory can be overridden by setting SCRATCH_BASE in the environment
 SCRATCH_BASE="${SCRATCH_BASE:-/scratch_shared/siepef}"

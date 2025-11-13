@@ -1,38 +1,57 @@
-FLAG=-c -std=c++11
-CC=mpicxx 
+MPICXX ?= mpicxx
+# Generic C/C++ compiler (may be set by environment); we avoid using it for MPI-linked builds
+CC ?= cc
+
+# Set CXX to MPICXX so implicit make rules use the MPI wrapper for C++ files
+CXX := $(MPICXX)
+
+# Verify MPICXX is available; if not, provide a helpful message when running make
+ifeq ($(shell which $(MPICXX) 2>/dev/null),)
+$(error "MPICXX ($(MPICXX)) not found in PATH. Load your MPI module or set MPICXX to the MPI compiler wrapper.")
+endif
+
+# Compiler flags for compilation of .cpp -> .o
+CXXFLAGS ?= -c -std=c++11 -Wall -Wextra
+
+# Use MPICXX for compilation/linking so MPI include paths/libs are used automatically
+COMPILER := $(MPICXX)
+
+# Generic pattern rule for building .o from .cpp using the chosen COMPILER
+%.o: %.cpp
+	$(COMPILER) $(CXXFLAGS) $< -o $@
 
 output: vectorc.o Data.o GList.o RList.o MuC.o RTree.o MuC_RTree.o partition.o clustering.o main.o
-	$(CC) -o output vectorc.o Data.o GList.o RList.o MuC.o RTree.o MuC_RTree.o partition.o clustering.o main.o -lm
+	$(COMPILER) -o output vectorc.o Data.o GList.o RList.o MuC.o RTree.o MuC_RTree.o partition.o clustering.o main.o -lm
 
 main.o: main.cpp
-	$(CC) $(FLAG) main.cpp -lm
+	$(COMPILER) $(CXXFLAGS) main.cpp -lm
 
 vectorc.o: vectorc.cpp
-	$(CC) $(FLAG) vectorc.cpp -lm
+	$(COMPILER) $(CXXFLAGS) vectorc.cpp -lm
 
 Data.o: Data.cpp
-	$(CC) $(FLAG) Data.cpp -lm
+	$(COMPILER) $(CXXFLAGS) Data.cpp -lm
 
 MuC_RTree.o: MuC_RTree.cpp
-	$(CC) $(FLAG) MuC_RTree.cpp  -lm
+	$(COMPILER) $(CXXFLAGS) MuC_RTree.cpp  -lm
 
 GList.o: GList.cpp
-	$(CC) $(FLAG) GList.cpp  -lm 
+	$(COMPILER) $(CXXFLAGS) GList.cpp  -lm 
 
 RList.o: RList.cpp
-	$(CC) $(FLAG) RList.cpp  -lm 
+	$(COMPILER) $(CXXFLAGS) RList.cpp  -lm 
 
 MuC.o: MuC.cpp
-	$(CC) $(FLAG) MuC.cpp  -lm
+	$(COMPILER) $(CXXFLAGS) MuC.cpp  -lm
 	 
 RTree.o: RTree.cpp
-	$(CC) $(FLAG) RTree.cpp  -lm
+	$(COMPILER) $(CXXFLAGS) RTree.cpp  -lm
 
 partition.o: partition.cpp
-	$(CC) $(FLAG) partition.cpp  -lm
+	$(COMPILER) $(CXXFLAGS) partition.cpp  -lm
 
 clustering.o: clustering.cpp
-	$(CC) $(FLAG) clustering.cpp  -lm
+	$(COMPILER) $(CXXFLAGS) clustering.cpp  -lm
 
 clean:
 	rm *.o
