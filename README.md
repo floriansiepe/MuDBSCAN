@@ -11,6 +11,22 @@ make clean
 make
 ```
 
+Compiling on HPC
+
+Find the libstdc++ lib:
+
+```bash
+ldd ./output | grep libstdc++
+```
+
+Copy that library into the repo lib/ using the helper. Replace /path/to/libstdc++.so.6 with the path from the previous step:
+
+```bash
+./scripts/bundle_libstdc++.sh /path/to/libstdc++.so.6
+```
+
+If you see GLIBCXX_3.4.26 in the output, the bundled library should satisfy the binary.
+
 ## What this repository contains
 
 - The original μDBSCAN implementation (sequential and MPI distributed).
