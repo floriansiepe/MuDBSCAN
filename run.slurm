@@ -4,7 +4,7 @@
 #SBATCH --ntasks=128
 #SBATCH --cpus-per-task=1
 #SBATCH --output=mu-dbscan_output_%j.txt
-#SBATCH --time=01:00:00
+#SBATCH --time=05:00:00
 #SBATCH --mail-user=siepef@uni-marburg.de
 #SBATCH --mail-type=END
 #SBATCH --mem=128G
