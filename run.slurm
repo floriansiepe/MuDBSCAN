@@ -81,10 +81,9 @@ echo "run finished with exit code $RET"
   
 # Attempt to parse the run log and generate metrics.json using parse_out.sh
 PARSE_SCRIPT="${SLURM_SUBMIT_DIR:-.}/parse_out.sh"
-PARSE_LOG="$EXP_DIR/run_${SLURM_JOB_ID}.log"
 if [ -x "$PARSE_SCRIPT" ]; then
-  echo "Parsing run log with $PARSE_SCRIPT -> $PARSE_LOG"
-  "$PARSE_SCRIPT" "$PARSE_LOG" "$EXP_DIR" || echo "Warning: parse_out.sh failed" >&2
+  echo "Parsing run log with $PARSE_SCRIPT -> $SCRATCH_FILE"
+  "$PARSE_SCRIPT" "$SCRATCH_FILE" "$EXP_DIR" || echo "Warning: parse_out.sh failed" >&2
 else
   echo "parse_out.sh not found or not executable at $PARSE_SCRIPT; skipping metrics generation" >&2
 fi
