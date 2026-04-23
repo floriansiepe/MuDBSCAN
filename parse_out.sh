@@ -76,6 +76,12 @@ else
   dataset="unknown_dataset"
 fi
 
+# Extract network transfer counters
+exchanged_partition_points=$(grep -m1 -E "MPI network point sends" "$OUTFILE" | sed -E 's/.*:[[:space:]]*([0-9]+).*/\1/') || true
+exchanged_merging_edges=$(grep -m1 -E "MPI network merge edge sends" "$OUTFILE" | sed -E 's/.*:[[:space:]]*([0-9]+).*/\1/') || true
+exchanged_partition_points="${exchanged_partition_points:-0}"
+exchanged_merging_edges="${exchanged_merging_edges:-0}"
+
 # Clean up eps string: remove trailing zeros and trailing decimal point (e.g. 0.050000 -> 0.05)
 eps_clean="$eps"
 if [ "$eps" != "unknown" ]; then
@@ -98,6 +104,10 @@ cat > "$metrics_file" <<EOF
   },
   "datasetParameters" : {
     "datasetName" : "$dataset"
+  },
+  "additionalMetrics" : {
+    "exchangedPartitioningPoints" : $exchanged_partition_points,
+    "exchangedMergingEdges" : $exchanged_merging_edges
   }
 }
 EOF
