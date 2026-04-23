@@ -239,6 +239,11 @@ int fileReadMulti(char* infilename, int* numObjs, int* numCoords, vector< vector
 			if (r > 0) displ[r] = displ[r-1] + counts[r-1];
 		}
 
+		if (rank == 0 && nproc > 1)
+		{
+			NETWORK_POINTS_SENT += (long long)(total_points - counts[0]);
+		}
+
 		int local_points = counts[rank];
 
 		/* resize local objects */
@@ -660,6 +665,7 @@ void start_partitioning(vector< vector<double> >& objects, int* num_points)
 		double median  = get_median(objects, num_points, d, new_comm);		
 
 		s_count = get_points_to_send(objects, num_points,send_buf, invalid_pos_as, median, d, rank, partner_rank);
+		NETWORK_POINTS_SENT += (long long)s_count;
 
 		if (rank < partner_rank)
 		{
@@ -901,6 +907,9 @@ void get_extra_points(vector< vector<double> >& objects, int* num_points, vector
 	{
 		if(send_buf_size[i] > 0)
 		{
+			if(i != rank)
+				NETWORK_POINTS_SENT += (long long)(send_buf_size[i] / DIMENSION);
+
 			MPI_Isend(&send_buf[i][0], send_buf_size[i], MPI_DOUBLE, i, tag, MPI_COMM_WORLD, &req_send[send_count++]);
 			MPI_Isend(&send_buf_ind[i][0], send_buf_size[i] / DIMENSION, MPI_INT, i, tag + 1, MPI_COMM_WORLD, &req_send[send_count++]);
 		}

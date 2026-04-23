@@ -124,6 +124,8 @@ extern int avgReachableGroupCount;
 extern int savedQueries;
 extern int totalCore;
 extern struct vectorc* unprocessedCore;
+extern long long NETWORK_POINTS_SENT;
+extern long long NETWORK_MERGE_EDGES_SENT;
 
 extern double * MINGRIDSIZE;
 extern double * MAXGRIDSIZE;

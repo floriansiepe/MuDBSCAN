@@ -60,7 +60,8 @@ int findNeighbourCount;
 int avgReachableGroupCount;
 int savedQueries;
 int totalCore;
-
+long long NETWORK_POINTS_SENT;
+long long NETWORK_MERGE_EDGES_SENT;
 vectorc* unprocessedCore;
 double * MINGRIDSIZE;
 double * MAXGRIDSIZE;
@@ -242,6 +243,8 @@ int main(int argc, char **argv)
 
 	int totalSize, dims;
 	int localSize;
+	NETWORK_POINTS_SENT = 0;
+	NETWORK_MERGE_EDGES_SENT = 0;
 
 	totalCore = 0;
     findNeighbourCount = 0;
@@ -333,6 +336,8 @@ int main(int argc, char **argv)
 		fprintf(output, "savedQueries(findNeighbours): %lf\n", (savedQueries*100.0)/totalSize);
 		fprintf(output, "savedQueries(TotalSaves: %lf\n", (findNeighbourCount+VECTOR_TOTAL(groupList)+VECTOR_TOTAL(unprocessedCore))*100.0/totalSize);
 		fprintf(output, "avgReachableGroupCount: %d\n", avgReachableGroupCount); 
+		fprintf(output, "MPI network point sends (remote only): %lld\n", NETWORK_POINTS_SENT);
+		fprintf(output, "MPI network merge edge sends (remote only): %lld\n", NETWORK_MERGE_EDGES_SENT);
 		fflush(output);
 
 		fprintf(output, "Noise : %d\n", r->noise); 
@@ -520,6 +525,11 @@ int main(int argc, char **argv)
 
 		if(myrank == 0)
 		{
+			long long totalNetworkPointsSent = 0;
+			MPI_Reduce(&NETWORK_POINTS_SENT, &totalNetworkPointsSent, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+			long long totalNetworkMergeEdgesSent = 0;
+			MPI_Reduce(&NETWORK_MERGE_EDGES_SENT, &totalNetworkMergeEdgesSent, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+
 			fprintf(output, "Filename: %s\t Eps: %lf\t Minpts: %d\t Nodes: %d\n\n", argv[1], EPS, MINPOINTS, numprocs);
 
             fprintf(output, "Clusters: %d\n", r->clusters - totalNoise);
@@ -547,6 +557,8 @@ int main(int argc, char **argv)
 
 			fprintf(output, "savedQueries(findNeighbours): %lf percent\n",(double) (totalSavedQueries*100.0)/(double)totalPoints);
 			fprintf(output, "savedQueries(TotalSaves: %lf percent\n", (global_sum+totalGroupSize+totalPostCore)*100.0/totalPoints);
+			fprintf(output, "MPI network point sends (remote only): %lld\n", totalNetworkPointsSent);
+			fprintf(output, "MPI network merge edge sends (remote only): %lld\n", totalNetworkMergeEdgesSent);
 
 			fflush(stderr);
 		
@@ -559,6 +571,11 @@ int main(int argc, char **argv)
 			fprintf(stderr, "savedQueries(findNeighbours): %lf\n", ((double)totalSavedQueries*100.0)/(double)totalSize);
 			fprintf(stderr, "savedQueries(TotalSaves: %lf\n", (global_sum+totalGroupSize+totalPostCore)*100.0/totalSize);
 			fflush(stderr);*/
+		}
+		else
+		{
+			MPI_Reduce(&NETWORK_POINTS_SENT, NULL, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+			MPI_Reduce(&NETWORK_MERGE_EDGES_SENT, NULL, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
 		}
 		
 		/*

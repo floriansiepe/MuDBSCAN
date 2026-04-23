@@ -657,6 +657,8 @@ void run_dbscan_algo_uf_mpi_interleaved(DataHdr dataList, vector < vector <int >
 
 			if(isend[tid] > 0)
 	    	{
+				if(tid != rank)
+					NETWORK_MERGE_EDGES_SENT += (long long)(isend[tid] / (i == 0 ? 2 : 3));
         		MPI_Isend(&(*p_cur_send)[tid][0], isend[tid], MPI_INT, tid, tag + 1, MPI_COMM_WORLD, &d_req_send[scount]);
         		scount++;
 	    	}
