@@ -11,7 +11,7 @@ $(error "MPICXX ($(MPICXX)) not found in PATH. Load your MPI module or set MPICX
 endif
 
 # Compiler flags for compilation of .cpp -> .o
-CXXFLAGS ?= -c -std=c++11 -Wall -Wextra
+CXXFLAGS ?= -c -std=c++11 -O3 -march=native -funroll-loops -Wall -Wextra
 
 # Use MPICXX for compilation/linking so MPI include paths/libs are used automatically
 COMPILER := $(MPICXX)
