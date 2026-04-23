@@ -15,7 +15,7 @@
 
 #############################################################################
 # Usage
-# sbatch run.slurm <dataset> <minEntries> <eps> <minPts> <num_partitions> <exp_dir> <out>
+# sbatch run.slurm <dataset> <minEntries> <eps> <minPts> <num_partitions> <exp_dir>
 #
 # Notes:
 # - <minEntries> will be used for both MinEntries and (by default) MaxEntries*2

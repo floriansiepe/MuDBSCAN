@@ -14,6 +14,7 @@ node_counts=(1 2 4 6 8 10)
 
 # Fixed number of partitions
 num_partitions=128
+min_entries=100
 
 # Create a grid of batch jobs
 datasets=("densired_2.csv" "densired_3.csv" "densired_4.csv" "densired_5.csv" "activity.csv" "geolife_gps_data.csv" "twitter_processed.csv" "tng_50.csv")
@@ -45,7 +46,7 @@ for num_nodes in "${node_counts[@]}"; do
 
     echo "Running dataset=$dataset dim=$dim eps=$eps minPts=$min_pts nodes=$num_nodes"
 
-    sbatch --nodes="$num_nodes" --ntasks-per-node=1 --time=05:00:00 run.slurm "/scratch_shared/siepef/datasets/$dataset" "$eps" "$min_pts" "$exp_dir"
+    sbatch --nodes="$num_nodes" --ntasks="$num_partitions" --time=05:00:00 run.slurm "/scratch_shared/siepef/datasets/$dataset" "$min_entries" "$eps" "$min_pts" "$num_partitions" "$exp_dir"
     exit_code=$?
     if [ $exit_code -ne 0 ]; then
       echo "-> FAILED: $dataset nodes=$num_nodes (exit $exit_code)"

@@ -7,6 +7,7 @@ if [ ! -f "./run.sh" ]; then
 fi
 
 num_partitions=128
+min_entries=100
 
 # Create a grid of batch jobs
 datasets=("densired_2.csv" "densired_3.csv" "densired_4.csv" "densired_5.csv" "activity.csv" "geolife_gps_data.csv" "twitter_processed.csv" "tng_50.csv") # simple-gps-points-120312.txt
@@ -35,7 +36,7 @@ for i in "${!datasets[@]}"; do
     dim="${dims[$i]}"
     read -r -a min_pts_array <<< "$min_pts_string"
     for min_pts in "${min_pts_array[@]}"; do
-      ./run.sh "/scratch_shared/siepef/datasets/$dataset" "$dim" "$eps" "$min_pts" "$num_partitions" /home/siepef/experiments/minPts
+      ./run.sh "/scratch_shared/siepef/datasets/$dataset" "$min_entries" "$eps" "$min_pts" "$num_partitions" /home/siepef/experiments/minPts
       exit_code=$?
       if [ $exit_code -ne 0 ]; then
         ((failed_count++))
