@@ -55,9 +55,9 @@ echo "Eps: $EPS  MinPts: $MINPTS  MinEntries: $MINENTRIES  MaxEntries: $MAXENTRI
 
 
 module purge
-module load gnu12
-module load ucx
-module load openmpi4
+module load gnu12/12.4.0
+module load openmpi4/4.1.8
+
 
 # If a bundled lib or lib64 directory exists in the submit directory, prepend it
 # to LD_LIBRARY_PATH so bundled libstdc++.so.6 is used on compute nodes.
