@@ -55,6 +55,8 @@ echo "Eps: $EPS  MinPts: $MINPTS  MinEntries: $MINENTRIES  MaxEntries: $MAXENTRI
 
 
 module purge
+module load gnu12
+module load ucx
 module load openmpi4
 
 # If a bundled lib or lib64 directory exists in the submit directory, prepend it
