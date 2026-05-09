@@ -15,7 +15,7 @@ fi
 
 # For pure-MPI runs set NUM_PARTITIONS to number of ranks (e.g. 128 for 4 nodes × 32 cores)
 # Forward NUM_PARTITIONS as the ntasks value to sbatch so the allocation matches the run.
-sbatch run.slurm "$DATASET" "$MINENTRIES" "$EPS" "$MINPTS" "$NUM_PARTITIONS" "$EXP_DIR"
+sbatch --ntasks="$NUM_PARTITIONS" run.slurm "$DATASET" "$MINENTRIES" "$EPS" "$MINPTS" "$NUM_PARTITIONS" "$EXP_DIR"
 
 exit 0
 

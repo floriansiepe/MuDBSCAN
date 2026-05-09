@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=MuDBSCANJob
 #SBATCH --nodes=4
-#SBATCH --ntasks=128
+#SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --output=mu-dbscan_output_%j.txt
 #SBATCH --time=05:00:00
@@ -10,8 +10,8 @@
 #SBATCH --mem=128G
 ##SBATCH --exclusive
 # You can override partition, qos, account etc. by editing the header or
-# passing them to sbatch on the command line. Adjust nodes/ntasks-per-node
-# to match the resources you need.
+# passing them to sbatch on the command line. The submission wrapper sets
+# --ntasks to match the requested MPI rank count.
 
 #############################################################################
 # Usage
