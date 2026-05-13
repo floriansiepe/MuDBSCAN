@@ -10,7 +10,7 @@ if [ ! -f "./run.slurm" ]; then
 fi
 
 # Fixed number of partitions
-num_partitions=128
+num_partitions=64
 
 # Create a grid of batch jobs
 datasets=("densired_2.csv" "densired_3.csv" "densired_4.csv" "densired_5.csv") # "activity.csv" "geolife_gps_data.csv" "twitter_processed.csv" "tng_50.csv")

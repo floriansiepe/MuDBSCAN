@@ -6,7 +6,7 @@ if [ ! -f "./run.sh" ]; then
   exit 1
 fi
 
-num_partitions=128
+num_partitions=64
 min_entries=100
 
 # Create a grid of batch jobs
